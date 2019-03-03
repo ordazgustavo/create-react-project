@@ -1,0 +1,27 @@
+{
+  "name": "create-react-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^2.4.2",
+    "child_process": "^1.0.2",
+    "commander": "^2.19.0",
+    "cross-spawn": "^6.0.5",
+    "inquirer": "^6.2.2"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.0",
+    "@types/inquirer": "0.0.44",
+    "@types/node": "11.10.4",
+    "rimraf": "^2.6.3",
+    "typescript": "3.3.3333"
+  }
+}
