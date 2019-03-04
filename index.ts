@@ -5,7 +5,7 @@ import * as spawn from 'cross-spawn'
 import { execSync } from 'child_process'
 import * as path from 'path'
 
-import { version } from './package.json'
+import { name, version } from './package.json'
 
 type PackageManagers = 'yarn' | 'npm'
 type Bundle = 'cra' | 'gatby' | 'next'
@@ -104,7 +104,7 @@ commander
             console.log(chalk.green('Success!'))
             console.log(
               `Thanks for using ${chalk.green(
-                'create-react-project',
+                name,
               )} please consider a donation`,
             )
           })
