@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import * as commander from 'commander'
 import { prompt, Questions, Answers } from 'inquirer'
 import chalk from 'chalk'

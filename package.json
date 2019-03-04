@@ -3,6 +3,9 @@
   "version": "0.0.1-beta.1",
   "description": "",
   "main": "dist/index.js",
+  "bin": {
+    "init-react-project": "dist/index.js"
+  },
   "scripts": {
     "build": "rimraf dist && tsc",
     "prepare": "npm run build",
