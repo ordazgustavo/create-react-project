@@ -5,7 +5,7 @@ import * as spawn from 'cross-spawn'
 import { execSync } from 'child_process'
 import * as path from 'path'
 
-import { version } from '../package.json'
+import { version } from './package.json'
 
 type PackageManagers = 'yarn' | 'npm'
 type Bundle = 'cra' | 'gatby' | 'next'
