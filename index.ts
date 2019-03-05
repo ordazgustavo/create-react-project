@@ -15,7 +15,7 @@ type Language = 'javascript' | 'typescript'
 enum Commands {
   yarn = 'yarn',
   npx = 'npx',
-  npm = 'nom',
+  npm = 'npm',
 }
 
 interface Install {
