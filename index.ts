@@ -5,6 +5,7 @@ import chalk from 'chalk'
 import * as spawn from 'cross-spawn'
 import { execSync } from 'child_process'
 import * as path from 'path'
+import * as fs from 'fs-extra'
 
 import { name, version } from './package.json'
 
@@ -92,7 +93,6 @@ const questions: Questions = [
 ]
 
 commander.version(version)
-
 commander
   .command('create')
   .alias('c')
@@ -144,35 +144,51 @@ function install({
   packageManager,
   packageName,
   language,
+  includeEslint,
   includePrettier,
+  setupPrecommit,
 }: Install) {
   return new Promise((resolve, reject) => {
     let command = packageManager === 'yarn' ? Commands.yarn : Commands.npx
     let localCommand = command === 'yarn' ? Commands.yarn : Commands.npm
     let args: string[] = []
+    let extraDependencies: string[] = []
 
     const root = path.resolve(packageName)
 
     if (bundle === 'cra') {
       installCRA(command, args, language, packageName)
         .then(async () => {
-          if (includePrettier) {
-            try {
-              await installPrettier(localCommand, root)
-            } catch (error) {
-              console.log('Failed installing prettier')
-              console.log(error)
-            }
-
-            resolve()
+          if (includeEslint) {
+            extraDependencies.push('eslint')
           }
+
+          if (includePrettier) {
+            extraDependencies.push('prettier')
+          }
+          if (setupPrecommit) {
+            const packageJSONPath = root + '/package.json'
+            addPrecommitConfiguration(packageJSONPath, language)
+            extraDependencies.push('husky', 'lint-staged')
+          }
+          try {
+            await installDependencies(localCommand, root, extraDependencies)
+          } catch (error) {
+            console.log('Failed installing dependencies')
+            console.log(error)
+          }
+          resolve()
         })
         .catch(error => reject(error))
     }
   })
 }
 
-function installPrettier(command: Commands, source: string) {
+function installDependencies(
+  command: Commands,
+  source: string,
+  allDependencies: string[],
+) {
   return new Promise((resolve, reject) => {
     let args: string[] = []
     if (command === Commands.yarn) {
@@ -180,8 +196,8 @@ function installPrettier(command: Commands, source: string) {
     } else if (command === Commands.npm) {
       args.push('install')
     }
-
-    args.push('-D', 'prettier')
+    args.push('-D')
+    args.push(...allDependencies)
 
     const child = spawn(command, args, { stdio: 'inherit', cwd: source })
     child.on('close', code => {
@@ -240,42 +256,26 @@ function installNext(options: Install) {
   return
 }
 
-// function install(dependencies: string[]) {
-//   return new Promise((resolve, reject) => {
-//     let command: string
-//     let args: string[]
-
-//     command = 'npm'
-//     args = ['install', '--save', '--save-exact', '--loglevel', 'error'].concat(
-//       dependencies,
-//     )
-
-//     const child = spawn(command, args, { stdio: 'inherit' })
-//     child.on('close', code => {
-//       if (code !== 0) {
-//         reject({
-//           command: `${command} ${args.join(' ')}`,
-//         })
-//         return
-//       }
-//       resolve()
-//     })
-//   })
-// }
-
-// function run(useTypescript: boolean) {
-//   const allDependencies = ['react', 'react-dom', 'react-scripts']
-//   if (useTypescript) {
-//     allDependencies.push(
-//       '@types/node',
-//       '@types/react',
-//       '@types/react-dom',
-//       '@types/jest',
-//       'typescript',
-//     )
-//   }
-
-//   install(allDependencies)
-// }
-
-// run(program.typescript)
+function addPrecommitConfiguration(
+  packageJSONPath: string,
+  language: Language,
+) {
+  const packageObj = fs.readJSONSync(packageJSONPath)
+  let linterFileTypes = 'src/**/*.{js,md,css,json}'
+  if (language === 'typescript') {
+    linterFileTypes = 'src/**/*.{js,md,css,json,ts,tsx}'
+  }
+  fs.writeJSONSync(packageJSONPath, {
+    ...packageObj,
+    husky: {
+      hooks: {
+        'pre-commit': 'lint-staged',
+      },
+    },
+    'lint-staged': {
+      linters: {
+        [linterFileTypes]: ['prettier --write', 'git add'],
+      },
+    },
+  })
+}

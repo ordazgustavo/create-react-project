@@ -19,10 +19,12 @@
     "child_process": "^1.0.2",
     "commander": "^2.19.0",
     "cross-spawn": "^6.0.5",
+    "fs-extra": "^7.0.1",
     "inquirer": "^6.2.2"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.0",
+    "@types/fs-extra": "^5.0.5",
     "@types/inquirer": "0.0.44",
     "@types/node": "11.10.4",
     "rimraf": "^2.6.3",
