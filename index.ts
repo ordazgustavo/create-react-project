@@ -148,7 +148,7 @@ function install({
   includePrettier,
   setupPrecommit,
 }: Install) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     let command = packageManager === 'yarn' ? Commands.yarn : Commands.npx
     let localCommand = command === 'yarn' ? Commands.yarn : Commands.npm
     let args: string[] = []
@@ -157,30 +157,53 @@ function install({
     const root = path.resolve(packageName)
 
     if (bundle === 'cra') {
-      installCRA(command, args, language, packageName)
-        .then(async () => {
-          if (includeEslint) {
-            extraDependencies.push('eslint')
-          }
-
-          if (includePrettier) {
-            extraDependencies.push('prettier')
-          }
-          if (setupPrecommit) {
-            const packageJSONPath = root + '/package.json'
-            addPrecommitConfiguration(packageJSONPath, language)
-            extraDependencies.push('husky', 'lint-staged')
-          }
-          try {
-            await installDependencies(localCommand, root, extraDependencies)
-          } catch (error) {
-            console.log('Failed installing dependencies')
-            console.log(error)
-          }
-          resolve()
-        })
-        .catch(error => reject(error))
+      try {
+        await installCRA(command, args, language, packageName)
+      } catch (error) {
+        reject(error)
+      }
     }
+
+    if (bundle === 'gatby') {
+      try {
+        await installGatsby(command, args, packageName)
+        if (includeEslint) {
+          extraDependencies.push('gatsby-plugin-typescript')
+        }
+      } catch (error) {
+        reject(error)
+      }
+    }
+
+    if (bundle === 'next') {
+      try {
+        await installNext(command, args, language, packageName)
+      } catch (error) {
+        reject(error)
+      }
+    }
+
+    if (includeEslint) {
+      extraDependencies.push('eslint')
+    }
+
+    if (includePrettier) {
+      extraDependencies.push('prettier')
+    }
+    if (setupPrecommit) {
+      const packageJSONPath = root + '/package.json'
+      addPrecommitConfiguration(packageJSONPath, language)
+      extraDependencies.push('husky', 'lint-staged')
+    }
+    if (extraDependencies.length) {
+      try {
+        await installDependencies(localCommand, root, extraDependencies)
+      } catch (error) {
+        console.log('Failed installing dependencies')
+        console.log(error)
+      }
+    }
+    resolve()
   })
 }
 
@@ -244,16 +267,63 @@ function installCRA(
   })
 }
 
-function installGatsby(options: Install) {
-  // TODO
-  console.log('Not available yet ', options)
-  return
+function installGatsby(command: Commands, args: string[], packageName: string) {
+  return new Promise((resolve, reject) => {
+    const allArgs = [...args]
+
+    if (command === Commands.yarn) {
+      allArgs.push('create', 'react-app', packageName)
+    } else if (command === Commands.npx) {
+      allArgs.push('gatsby', 'new', packageName)
+    }
+
+    const child = spawn(command, allArgs, { stdio: 'inherit' })
+    child.on('close', code => {
+      if (code !== 0) {
+        reject({
+          command: `${command} ${allArgs.join(' ')}`,
+        })
+        return
+      }
+      resolve()
+    })
+  })
 }
 
-function installNext(options: Install) {
-  // TODO
-  console.log('Not available yet ', options)
-  return
+function installNext(
+  command: Commands,
+  args: string[],
+  language: Language,
+  packageName: string,
+) {
+  return new Promise((resolve, reject) => {
+    const allArgs = [...args]
+
+    if (command === Commands.yarn) {
+      allArgs.push('create', 'next-app', '--example')
+    } else if (command === Commands.npx) {
+      allArgs.push('create-next-app', '--example')
+    }
+
+    if (language === 'typescript') {
+      allArgs.push('with-typescript')
+    } else {
+      allArgs.push('hello-world')
+    }
+
+    allArgs.push(packageName)
+
+    const child = spawn(command, allArgs, { stdio: 'inherit' })
+    child.on('close', code => {
+      if (code !== 0) {
+        reject({
+          command: `${command} ${allArgs.join(' ')}`,
+        })
+        return
+      }
+      resolve()
+    })
+  })
 }
 
 function addPrecommitConfiguration(
