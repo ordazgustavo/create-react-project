@@ -199,6 +199,7 @@ function install({
         } else if (localCommand === Commands.npm) {
           depsArgs.push('install')
         }
+        depsArgs.push('-D')
         depsArgs.push(...devDependencies)
         await installDependencies(localCommand, depsArgs, { cwd: root })
       } catch (error) {
