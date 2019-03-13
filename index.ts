@@ -10,7 +10,7 @@ import * as fs from 'fs-extra'
 import { name, version } from './package.json'
 
 type PackageManagers = 'yarn' | 'npm'
-type Bundle = 'cra' | 'gatby' | 'next'
+type Bundle = 'cra' | 'gatsby' | 'next'
 type Language = 'javascript' | 'typescript'
 
 enum Commands {
@@ -160,7 +160,7 @@ function install({
       args = installCRA(command, language, packageName)
     }
 
-    if (bundle === 'gatby') {
+    if (bundle === 'gatsby') {
       args = installGatsby(command, packageName)
       if (language === 'typescript') {
         devDependencies.push('gatsby-plugin-typescript')
