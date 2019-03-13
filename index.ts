@@ -3,7 +3,7 @@ import * as commander from 'commander'
 import { prompt, Questions, Answers } from 'inquirer'
 import chalk from 'chalk'
 import * as spawn from 'cross-spawn'
-import { execSync } from 'child_process'
+import { execSync, SpawnOptions } from 'child_process'
 import * as path from 'path'
 import * as fs from 'fs-extra'
 
@@ -152,52 +152,55 @@ function install({
     let command = packageManager === 'yarn' ? Commands.yarn : Commands.npx
     let localCommand = command === 'yarn' ? Commands.yarn : Commands.npm
     let args: string[] = []
-    let extraDependencies: string[] = []
+    let devDependencies: string[] = []
 
     const root = path.resolve(packageName)
 
     if (bundle === 'cra') {
-      try {
-        await installCRA(command, args, language, packageName)
-      } catch (error) {
-        reject(error)
-      }
+      args = installCRA(command, language, packageName)
     }
 
     if (bundle === 'gatby') {
-      try {
-        await installGatsby(command, args, packageName)
-        if (includeEslint) {
-          extraDependencies.push('gatsby-plugin-typescript')
-        }
-      } catch (error) {
-        reject(error)
+      args = installGatsby(command, packageName)
+      if (language === 'typescript') {
+        devDependencies.push('gatsby-plugin-typescript')
       }
     }
 
     if (bundle === 'next') {
-      try {
-        await installNext(command, args, language, packageName)
-      } catch (error) {
-        reject(error)
-      }
+      args = installNext(command, language, packageName)
+    }
+
+    try {
+      await installDependencies(command, args)
+    } catch (error) {
+      reject(error)
     }
 
     if (includeEslint) {
-      extraDependencies.push('eslint')
+      devDependencies.push('eslint')
     }
 
     if (includePrettier) {
-      extraDependencies.push('prettier')
+      devDependencies.push('prettier')
     }
+
     if (setupPrecommit) {
       const packageJSONPath = root + '/package.json'
       addPrecommitConfiguration(packageJSONPath, language)
-      extraDependencies.push('husky', 'lint-staged')
+      devDependencies.push('husky', 'lint-staged')
     }
-    if (extraDependencies.length) {
+
+    if (devDependencies.length) {
       try {
-        await installDependencies(localCommand, root, extraDependencies)
+        let depsArgs: string[] = []
+        if (localCommand === Commands.yarn) {
+          depsArgs.push('add')
+        } else if (localCommand === Commands.npm) {
+          depsArgs.push('install')
+        }
+        depsArgs.push(...devDependencies)
+        await installDependencies(localCommand, depsArgs, { cwd: root })
       } catch (error) {
         console.log('Failed installing dependencies')
         console.log(error)
@@ -209,20 +212,11 @@ function install({
 
 function installDependencies(
   command: Commands,
-  source: string,
-  allDependencies: string[],
+  args: string[],
+  options?: SpawnOptions,
 ) {
   return new Promise((resolve, reject) => {
-    let args: string[] = []
-    if (command === Commands.yarn) {
-      args.push('add')
-    } else if (command === Commands.npm) {
-      args.push('install')
-    }
-    args.push('-D')
-    args.push(...allDependencies)
-
-    const child = spawn(command, args, { stdio: 'inherit', cwd: source })
+    const child = spawn(command, args, { stdio: 'inherit', ...options })
     child.on('close', code => {
       if (code !== 0) {
         reject({
@@ -237,93 +231,56 @@ function installDependencies(
 
 function installCRA(
   command: Commands,
-  args: string[],
   language: Language,
   packageName: string,
-) {
-  return new Promise((resolve, reject) => {
-    const allArgs = [...args]
+): string[] {
+  const allArgs = []
 
-    if (command === Commands.yarn) {
-      allArgs.push('create', 'react-app', packageName)
-    } else if (command === Commands.npx) {
-      allArgs.push('create-react-app', packageName, '--use-npm')
-    }
+  if (command === Commands.yarn) {
+    allArgs.push('create', 'react-app', packageName)
+  } else if (command === Commands.npx) {
+    allArgs.push('create-react-app', packageName, '--use-npm')
+  }
 
-    if (language === 'typescript') {
-      allArgs.push('--typescript')
-    }
-
-    const child = spawn(command, allArgs, { stdio: 'inherit' })
-    child.on('close', code => {
-      if (code !== 0) {
-        reject({
-          command: `${command} ${allArgs.join(' ')}`,
-        })
-        return
-      }
-      resolve()
-    })
-  })
+  if (language === 'typescript') {
+    allArgs.push('--typescript')
+  }
+  return allArgs
 }
 
-function installGatsby(command: Commands, args: string[], packageName: string) {
-  return new Promise((resolve, reject) => {
-    const allArgs = [...args]
+function installGatsby(command: Commands, packageName: string): string[] {
+  const allArgs = []
 
-    if (command === Commands.yarn) {
-      allArgs.push('create', 'react-app', packageName)
-    } else if (command === Commands.npx) {
-      allArgs.push('gatsby', 'new', packageName)
-    }
-
-    const child = spawn(command, allArgs, { stdio: 'inherit' })
-    child.on('close', code => {
-      if (code !== 0) {
-        reject({
-          command: `${command} ${allArgs.join(' ')}`,
-        })
-        return
-      }
-      resolve()
-    })
-  })
+  if (command === Commands.yarn) {
+    allArgs.push('create', 'react-app', packageName)
+  } else if (command === Commands.npx) {
+    allArgs.push('gatsby', 'new', packageName)
+  }
+  return allArgs
 }
 
 function installNext(
   command: Commands,
-  args: string[],
   language: Language,
   packageName: string,
-) {
-  return new Promise((resolve, reject) => {
-    const allArgs = [...args]
+): string[] {
+  const allArgs = []
 
-    if (command === Commands.yarn) {
-      allArgs.push('create', 'next-app', '--example')
-    } else if (command === Commands.npx) {
-      allArgs.push('create-next-app', '--example')
-    }
+  if (command === Commands.yarn) {
+    allArgs.push('create', 'next-app', '--example')
+  } else if (command === Commands.npx) {
+    allArgs.push('create-next-app', '--example')
+  }
 
-    if (language === 'typescript') {
-      allArgs.push('with-typescript')
-    } else {
-      allArgs.push('hello-world')
-    }
+  if (language === 'typescript') {
+    allArgs.push('with-typescript')
+  } else {
+    allArgs.push('hello-world')
+  }
 
-    allArgs.push(packageName)
+  allArgs.push(packageName)
 
-    const child = spawn(command, allArgs, { stdio: 'inherit' })
-    child.on('close', code => {
-      if (code !== 0) {
-        reject({
-          command: `${command} ${allArgs.join(' ')}`,
-        })
-        return
-      }
-      resolve()
-    })
-  })
+  return allArgs
 }
 
 function addPrecommitConfiguration(
